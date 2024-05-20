@@ -7,8 +7,12 @@ import com.github.jonashonecker.backend.repo.Item;
 import com.github.jonashonecker.backend.repo.ItemDTO;
 import com.github.jonashonecker.backend.repo.ItemRepository;
 import com.github.jonashonecker.backend.repo.Status;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,11 +22,14 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -37,11 +44,38 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class SuperKanbanControllerIntegrationTest {
 
+    private static MockWebServer mockWebServer;
+
+    @BeforeAll
+    static void beforeAll() throws IOException {
+        mockWebServer = new MockWebServer();
+        mockWebServer.start();
+    }
+
+    @AfterAll
+    static void tearDown() throws IOException {
+        mockWebServer.shutdown();
+    }
+
+    @DynamicPropertySource
+    static void backendProperties(DynamicPropertyRegistry registry) {
+        registry.add("gemma_url", () -> mockWebServer.url("/").toString());
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
     //Utility
     public void postItem(String description, String status) throws Exception {
+        String mockedDescription = String.format("""
+                {
+                "response": "{\\"corrected_text\\": \\"%s\\"}"
+                }
+                """, description);
+        mockWebServer.enqueue(new MockResponse()
+                .setBody(mockedDescription)
+                .addHeader("Content-Type", "application/json"));
+
         String jsonContent = String.format("""
                 {
                 "description": "%s",
@@ -122,6 +156,14 @@ class SuperKanbanControllerIntegrationTest {
     @Test
     @DirtiesContext
     void addItem_returnItem_whenItemWasSavedInRepository() throws Exception {
+        //GIVEN
+        mockWebServer.enqueue(new MockResponse()
+                .setBody("""
+                        {
+                        "response": "{\\"corrected_text\\": \\"Test\\"}"
+                        }
+                        """)
+                .addHeader("Content-Type", "application/json"));
         //WHEN
         mockMvc.perform(post("/api/todo")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -146,6 +188,14 @@ class SuperKanbanControllerIntegrationTest {
     @DirtiesContext
     void addItem_repositoryShouldContainElement_whenItemWasSavedInRepository() throws Exception {
         //GIVEN
+        mockWebServer.enqueue(new MockResponse()
+                .setBody("""
+                        {
+                        "response": "{\\"corrected_text\\": \\"abc\\"}"
+                        }
+                        """)
+                .addHeader("Content-Type", "application/json"));
+
         ObjectMapper objectMapper = new ObjectMapper();
         ItemDTO newItem = new ItemDTO("abc", Status.OPEN);
         String newItemJSON = objectMapper.writeValueAsString(newItem);

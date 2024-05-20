@@ -1,5 +1,6 @@
 package com.github.jonashonecker.backend;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.jonashonecker.backend.repo.Item;
 import com.github.jonashonecker.backend.repo.ItemDTO;
 import org.springframework.web.bind.annotation.*;

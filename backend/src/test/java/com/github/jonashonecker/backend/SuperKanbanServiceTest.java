@@ -18,7 +18,8 @@ class SuperKanbanServiceTest {
 
     public ItemRepository mockItemRepository = mock();
     public UUIDService mockUUIDService = mock();
-    public SuperKanbanService superKanbanService = new SuperKanbanService(mockItemRepository, mockUUIDService);
+    public GemmaAIService mockGemmaAIService = mock();
+    public SuperKanbanService superKanbanService = new SuperKanbanService(mockItemRepository, mockUUIDService, mockGemmaAIService);
 
     @Test
     void getAllItems_returnListOfItems_whenCalled() {
@@ -44,16 +45,19 @@ class SuperKanbanServiceTest {
         //GIVEN
         Item newitem = new Item(null, "this is a test", Status.OPEN);
         String id = "123";
+        Item newItemWithId = newitem.withId(id);
 
-        when(mockItemRepository.insert(newitem)).thenReturn(newitem.withId(id));
+        when(mockItemRepository.insert(newItemWithId)).thenReturn(newItemWithId);
         when(mockUUIDService.generate()).thenReturn(id);
+        when(mockGemmaAIService.improveTextQuality("this is a test")).thenReturn("this is a test");
 
         //WHEN
         Item actual = superKanbanService.addItem(newitem);
 
         //THEN
-        verify(mockItemRepository).insert(newitem);
+        verify(mockItemRepository).insert(newItemWithId);
         verify(mockUUIDService).generate();
+        verify(mockGemmaAIService).improveTextQuality("this is a test");
         Item expected = newitem.withId(id);
         assertEquals(expected, actual);
     }
